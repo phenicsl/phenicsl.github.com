@@ -264,8 +264,8 @@ code {
     margin-left: 2em;
 }
 
-#post blockquote {
-    padding: 5px 30px 0px 30px;    
+#post blockquote{
+    padding: 5px 0px 0px 30px;
     color: #666666;
 }
 

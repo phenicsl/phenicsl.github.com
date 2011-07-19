@@ -137,15 +137,18 @@ Some用来包装正确的值,而None则用来指示错误的发生. 而使用Pat
 同样的Monad Container里.&nbsp;而map方法则需要满足下面的两个规则:</p>
 <ul>
 <li>
-<p><strong>规则1: Identify&nbsp;:</strong></p>
-<p>// if we have identify defined to be
-def identify<a href="x: A">A</a> =&nbsp;x</p>
-<p>// then map should 
-m map identify ==&nbsp;m</p>
+<p><strong>规则1: Identify </strong>:</p>
+<pre><code>// if we have identify defined to be
+def identify[A](x: A) = x
+
+// then map should 
+m map identify == m
+</code></pre>
 </li>
 <li>
-<p><strong>规则2: Composition&nbsp;:</strong></p>
-<p>m map g map f = m map { x =&gt; f(g(x))&nbsp;}</p>
+<p><strong>规则2: Composition </strong>:</p>
+<pre><code>m map g map f = m map { x =&gt; f(g(x)) }
+</code></pre>
 </li>
 </ul>
 <p>第一条规则涉及到另外一个函数identify, 顾名思义， identify被定义为接收一个参数x，
@@ -174,15 +177,18 @@ flatMap会对Monad Container里面的每一个元素都产生一个新的Monad C
 <ul>
 <li>
 <p><strong>规则1: Identify&nbsp;:</strong></p>
-<p>m flatMap { x =&gt; unit(x) } ==&nbsp;m</p>
+<pre><code>m flatMap { x =&gt; unit(x) } == m
+</code></pre>
 </li>
 <li>
 <p><strong>规则2: Unit&nbsp;:</strong></p>
-<p>unit(x) flatMap f ==&nbsp;f(x)</p>
+<pre><code>unit(x) flatMap f == f(x)
+</code></pre>
 </li>
 <li>
 <p><strong>规则3: Composition&nbsp;:</strong></p>
-<p>m flatMap g flatMap f = m flatMap { x =&gt; g(x) flatMap f&nbsp;}</p>
+<pre><code>m flatMap g flatMap f = m flatMap { x =&gt; g(x) flatMap f }
+</code></pre>
 </li>
 </ul>
 <p>无论是Monad需要满足的Functor的特性还是Monad额外的特性, 看起来都比较抽象. 实际上这
