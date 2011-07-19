@@ -14,7 +14,7 @@ h1 {
 body {
     height: 100%;
     background-color: white;
-    font: verdana, helvetica, arial, sans;
+    font: 14px verdana, helvetica, arial, sans;
     text-align: center;
     line-height: 24px;
 }
