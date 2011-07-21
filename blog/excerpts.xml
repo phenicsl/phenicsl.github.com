@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
     <title>
-        BASIC blog excerpts feed    </title>
+        Phenicsl blog excerpts feed    </title>
         <link href="blog/excerpts.xml" rel="self" />
     
         <link href="/"/>
     
         
-    <updated>2011-07-20T04:51:17Z</updated>
+    <updated>2011-07-21T00:05:13Z</updated>
 
     <id>/blog/excerpts.xml/</id>
 

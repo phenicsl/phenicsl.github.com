@@ -12,6 +12,7 @@ h1 {
 }
 
 body {
+    color: #555555;
     height: 100%;
     background-color: white;
     font: 14px verdana, helvetica, arial, sans;
@@ -24,22 +25,25 @@ p {
 }
 
 div#site{
-    background-color: #EEEEEE;
+    background-color: #FAFAFA;
 }
 /*
  * header
  */
 #header {
-    background-color: #333333;
+    background-color: #444444;
     width: 100%;
     border-bottom: 2px solid #555555;
 }
 
 #blogTitle{
+    background-color: #333333;
     width: 950px;
     text-align: left;
     margin: auto;
-    padding: 20px 20px 5px 0;
+    padding: 20px 20px 5px 20px;
+    border-left: 1px solid #555555;
+    border-right: 1px solid #555555;
 }
 
 #blogTitle h1.blogName{
@@ -81,7 +85,7 @@ div#site{
 #content {
     background-color: #FFFFFF;
     text-align: justify;
-    padding: 40px 20px 40px 20px;
+    padding: 30px 20px;
     width: 950px;
     margin: auto;
     border-left: 1px solid #DDDDDD;
@@ -98,18 +102,10 @@ div#site{
 }
 
 #main h1 {
-    color: #555555;
+    color: #333333;
     font-size: 160%;
 }
 
-h1.title{
-    border-bottom: 1px solid #CCCCCC;
-}
-
-div.create_date{
-    color: #FF9933;
-    font-weight: bold;
-}
 /*
  * sidebar
  */
@@ -220,16 +216,25 @@ ul.categories {
     color: #555555;
 }
 
-#post h1 {
-    color: #555555;    
+#post h1.title{    
+    border-bottom: 1px solid #F3F3F3;
+    padding: 5px 2px;
+    background-color: #F7F7F7;
+    border-top: 1px solid #F3F3F3;
 }
 
-#post h1 a{
+#post h1.title a{
     color: #555555;
 }
 
-#post h1 a:hover{
+#post h1.title a:hover{
     color: #555555;
+}
+
+div.create_date{
+    color: #FF9933;
+    font-weight: bold;
+    margin-bottom: 5px;
 }
 
 #post a {
@@ -290,7 +295,7 @@ code {
 }
 
 #post .tags a:hover{
-    color: #FF49BD;
+    color: #91C704;
 }
 
 #post ul.tags {

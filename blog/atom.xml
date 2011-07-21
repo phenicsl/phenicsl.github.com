@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
     <title>
-        BASIC blog full text feed    </title>
+        Phenicsl blog full text feed    </title>
         <link href="blog/atom.xml" rel="self" />
     
         <link href="/"/>
     
         
-    <updated>2011-07-20T04:51:17Z</updated>
+    <updated>2011-07-21T00:05:13Z</updated>
 
     <id>/blog/atom.xml/</id>
 
@@ -114,15 +114,18 @@ Some用来包装正确的值,而None则用来指示错误的发生. 而使用Pat
 同样的Monad Container里.&amp;nbsp;而map方法则需要满足下面的两个规则:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;
-&lt;p&gt;&lt;strong&gt;规则1: Identify&amp;nbsp;:&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;// if we have identify defined to be
-def identify&lt;a href=&#34;x: A&#34;&gt;A&lt;/a&gt; =&amp;nbsp;x&lt;/p&gt;
-&lt;p&gt;// then map should 
-m map identify ==&amp;nbsp;m&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;规则1: Identify &lt;/strong&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;// if we have identify defined to be
+def identify[A](x: A) = x
+
+// then map should 
+m map identify == m
+&lt;/code&gt;&lt;/pre&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;&lt;strong&gt;规则2: Composition&amp;nbsp;:&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;m map g map f = m map { x =&amp;gt; f(g(x))&amp;nbsp;}&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;规则2: Composition &lt;/strong&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;m map g map f = m map { x =&amp;gt; f(g(x)) }
+&lt;/code&gt;&lt;/pre&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;第一条规则涉及到另外一个函数identify, 顾名思义， identify被定义为接收一个参数x，
@@ -151,15 +154,18 @@ flatMap会对Monad Container里面的每一个元素都产生一个新的Monad C
 &lt;ul&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;规则1: Identify&amp;nbsp;:&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;m flatMap { x =&amp;gt; unit(x) } ==&amp;nbsp;m&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;m flatMap { x =&amp;gt; unit(x) } == m
+&lt;/code&gt;&lt;/pre&gt;
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;规则2: Unit&amp;nbsp;:&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;unit(x) flatMap f ==&amp;nbsp;f(x)&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;unit(x) flatMap f == f(x)
+&lt;/code&gt;&lt;/pre&gt;
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;规则3: Composition&amp;nbsp;:&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;m flatMap g flatMap f = m flatMap { x =&amp;gt; g(x) flatMap f&amp;nbsp;}&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;m flatMap g flatMap f = m flatMap { x =&amp;gt; g(x) flatMap f }
+&lt;/code&gt;&lt;/pre&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;无论是Monad需要满足的Functor的特性还是Monad额外的特性, 看起来都比较抽象. 实际上这
@@ -270,6 +276,11 @@ Container中的元素的组合进行f操作. 当然, for语句的含义远比上
 &lt;pre&gt;&lt;code&gt;def eval: Option[Int] = 
     for(x &amp;lt;- e1.eval, x &amp;lt;- e2.eval) yield (x + y)
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;没有烦人的None判断,&amp;nbsp;也没有map和flatMap. &lt;/p&gt;            </content>
+&lt;p&gt;没有烦人的None判断,&amp;nbsp;也没有map和flatMap. &lt;/p&gt;
+&lt;!-- 
+Local Variables:
+mode:markdown
+End:
+--&gt;            </content>
         </entry>
     </feed>
