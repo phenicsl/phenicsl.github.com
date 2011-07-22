@@ -25,25 +25,22 @@ p {
 }
 
 div#site{
-    background-color: #FAFAFA;
+    background-color: #F3F3F3;
 }
 /*
  * header
  */
 #header {
-    background-color: #444444;
+    background-color: #333333;
     width: 100%;
     border-bottom: 2px solid #555555;
 }
 
 #blogTitle{
-    background-color: #333333;
     width: 950px;
     text-align: left;
     margin: auto;
     padding: 20px 20px 5px 20px;
-    border-left: 1px solid #555555;
-    border-right: 1px solid #555555;
 }
 
 #blogTitle h1.blogName{
