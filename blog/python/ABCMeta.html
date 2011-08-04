@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+  <title>Abstract Base Classes Metaclass</title>
+  <meta name="description" content="" />
+  <meta name="author" content="phenicsl" />
+
+  <!-- main css -->
+    <link rel="stylesheet" href="/media/css/screen.css" type="text/css"/>
+  <link rel="stylesheet" href="/media/css/emacs.css" type="text/css"/>
+    
+  <script type="text/javascript" src="/media/js/mootools-core.js"></script>
+<script type="text/javascript" src="/media/js/hover_expand.js"></script>
+<script type="text/javascript">
+  window.addEvent('domready', function(){
+      var pres = $$('pre');
+  
+      pres.each(function(pre){
+          var hoverExpand = new HoverExpand({
+              element: pre
+          });
+	  
+          hoverExpand.registerExpand();
+      });
+  });
+</script>
+</head>
+<body>
+  <div id="site">
+    <div id="header">
+      <div id="blogTitle">
+	<h1 class="blogName">
+	  <a href="/">@Phenicsl</a>
+	</h1>
+	<div class="description">scala, perl6, functional programming</div>
+	<div class="navigation">
+	  <a href="/">Home</a>
+	  <a href="/about.html">About</a>
+	</div> <!-- end of navigation -->
+      </div> <!-- end of blogTitle -->
+    </div> <!-- end of header -->
+    
+    <div id="content">
+      <div id="main">
+	<div id="post">
+<div class="create_date"> 
+    Saturday, July 23, 2011
+</div>
+
+<h1 class="title">
+    <a href="/blog/python/ABCMeta.html">
+        Abstract Base Classes Metaclass
+    </a>
+</h1>
+
+<ul class="tags clear">
+<li>
+    <a class="small" href="/blog/tags/Python.html">
+        Python
+    </a>
+</li>
+</ul>
+<p>Since I have started to use <a href="http://hyde.github.com/" title="Hyde">Hyde</a> as my blog site generator. I also have
+tried to hack on the <a href="http://hyde.github.com/" title="Hyde">Hyde</a> source code to learn how it is constructued, and
+wish I could add some plugins or features to it at&nbsp;last.</p>
+<p>When I was reading the source code, I discovered the Hyde is using some python
+features that I&#8217;m not familiar with. Some of them were added until Python 2.6
+which I have not used yet and some of them are &#8220;advanced&#8221; ones. Once again, it
+proved that hacking on other people&#8217;s source code will greatly improve your
+programming knowledge and&nbsp;skill.</p>
+<p>This is a post about <code>abc.ABCMeta</code>, a metaclass for abstract base classes, which
+has been used in Hyde in its Plugin&nbsp;system.</p>
+<h2>Abstract Base&nbsp;Classes</h2>
+<blockquote>
+<p>abstract base class (<span class="caps">ABC</span>), is a class that cannot be instantiated for it is
+either labled as abstract or it simply specifies abstract methods (or virtual&nbsp;methods).</p>
+</blockquote>
+<p>It is the definition of <span class="caps">ABC</span> on <a href="http://en.wikipedia.org/wiki/Class_%28computer_programming%29" title="wikipedia.abc">wikipedia</a>. As my understanding, Abstract
+Base Class(<span class="caps">ABC</span>) defines a protocol by means of abstract methods. It requires all
+of its inherited classes to provide implementations to those defined abstract
+methods, if a concrete implemention for any abstract methods is lack in a
+inherited class, then the inherited class is also considered to be abstract and
+the system (compiler or interperter) will forbid it from being&nbsp;initialized.</p>
+<h2>abc.ABCMeta and abstract&nbsp;methods</h2>
+<p><code>abc.ABCMeta</code> is instroduced in Python 2.6 to support abstract base classes in
+Python language. Here is an example to demostrate how to use&nbsp;abc.ABCMeta.</p>
+<pre><code>import abc
+
+class Abstract_Conf_Parser(object):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def load(self):
+        return
+
+    @abc.abstractmethod
+    def parse(self, confile):
+        return
+
+    @abc.abstractmethod
+    def unload(self):
+        return
+
+class INI_Parser(Abstract_Conf_Parser):
+    def load(self):
+        print 'load XML Parser'
+
+    def unload(self):
+        print 'unload XML Parser'
+
+    def parse(self, confile):
+        print 'parse the file'
+</code></pre>
+<p>Let&#8217;s say that we have a system with configuration informatoin being stored in
+different format(probably not a good idea, but let&#8217;s assume it is the truth),
+like <span class="caps">XML</span>, <span class="caps">INI</span> text format, or even binary format. So we need to implement
+different configuration parsers. To manage all those parsers and also easily add
+new ones, we may come up a parser plugin system with code as the above&nbsp;example.</p>
+<p><code>Abstract_Conf_Parser</code> are an abstract base class with <code>load</code>, <code>unload</code> and
+<code>parser</code> defined to be abstract methods. <code>load</code> and <code>unload</code> are two that will
+be called when the system load or unload a parser plugin. <code>parse</code> is the method
+that will be called to parse configuration file. An implementation to parse <span class="caps">INI</span>
+format configuraiton file also has been provided in the above&nbsp;code.</p>
+<p>You may noticed that there is actually not very much difference between normal
+inheritance and using <code>abc.ABCMeta</code>. We inherited from the abstract base class,
+and provide concrete implementions to methods. The only difference is that we make
+the metaclass of <code>Abstract_Conf_Parser</code> to be <code>abc.ABCMeta</code>, and decorated
+methods of <code>Abstract_Conf_Parser</code> with <code>@abc.abstractmethod</code>. It will make those
+methods to be abstract and provide the ability to forbid implementations
+from being initialized if the implemention of any abstract methods is
+missed. For example, say we have a incomplete <span class="caps">XML</span> configuration parser as&nbsp;following:</p>
+<pre><code>class XML_Parser(Abstract_Conf_Parser):
+    def load(self):
+        print 'load INI Parser'
+
+    def unload(self):
+        print 'unload INI Parser'
+</code></pre>
+<p>Then, if we try to initialize the <code>XML_Parser</code>, we will get following TypeError&nbsp;exception:</p>
+<pre><code>&gt;&gt;&gt; xml_parser = Incomplete_XML_Parser()
+Traceback (most recent call last):
+  File "&lt;stdin&gt;", line 1, in &lt;module&gt;
+TypeError: Can't instantiate abstract class Incomplete_XML_Parser with abstract methods parse
+</code></pre>
+<p>the exception also told us that we have a abstract method <code>parse</code> in
+<code>Incomplete_XML_Parser</code>. And by using <code>abc.ABCMeta</code>, programmer could make sure
+all inherited classes that need to be initialized will follow the protocol of
+abstract base class to provide its own implementation to abstract&nbsp;methods.</p>
+<h2>Abstract&nbsp;Property</h2>
+<p><code>abc.ABCMeta</code> also support abstract property, as abstract methods, abstract
+property also requires to be overriden with concrete implementation, or else, an
+TypeError exception will be raised when&nbsp;initialization.</p>
+<p>Let&#8217;s assume that we want configuration parsers to check passed file name&#8217;s
+extension when <code>parse</code> method is invoked. This check will certainly help to
+prevent some sort of problem. To do this, we may add a property to store all
+supported file extensions in a concrete configuration parser as&nbsp;following:</p>
+<pre><code>import abc
+
+class Abstract_Conf_Parser(object):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractproperty
+    def file_extensions(self):
+        return
+
+    @file_extensions.setter
+    def file_extensions(self, extensions):
+        return
+
+class INI_Parser(Abstract_Conf_Parser):
+    @property
+    def file_extensions(self):
+        return self._file_extensions
+
+    @file_extensions.setter
+    def file_extensions(self, extensions):
+        self._file_extensions = extensions
+
+class XML_Parser(Abstract_Conf_Parser):
+    @property
+    def file_extension(self):
+        return ['xml']
+</code></pre>
+<p>Here, I have used the new syntax to specify property setter that is introducted
+in Python 2.6. As abstract methods&#8217; example, <code>INI_Parser</code> is able to be
+initialized, but since <code>XML_Parser</code> failed to provide a implementation for the
+setter method of property <code>file_extensions</code>, <code>TypeError</code> exception will be
+raised when initialize&nbsp;it.</p>
+<pre><code>xml_parser = XML_Parser()
+Traceback (most recent call last):
+  File "&lt;stdin&gt;", line 1, in &lt;module&gt;
+TypeError: Can't instantiate abstract class XML_Parser with abstract methods file_extensions
+</code></pre>
+<h2>abc.ABCMeta&nbsp;registry</h2>
+<h2>How abc.ABCMeta&nbsp;works</h2>
+<p>After some tests and source code hacking, I found that the magic of abstract
+base classes includes following two&nbsp;parts:</p>
+<ul>
+<li>
+<p>firstly, any class with a class attribute <code>__abstractmethods__</code> will be
+  considered as an abstract base classes. <code>__abstractmethods__</code> should be a
+  instance of type <code>set</code> which contains all abstract method&nbsp;names.</p>
+</li>
+<li>
+<p>When instance is created and initialized, methods in <code>__abstractmethods__</code> will
+  be checked to see if they have been provided with a concrete implmementation
+  in the inherited class. If that is not the case, then an <code>TypeError</code> exception
+  will be&nbsp;raised. </p>
+</li>
+</ul>
+<p>The check of The <code>__abstractmethods__</code> is not defined in <code>abc.ABCMeta</code> but in
+<code>type</code>, which is the base class for every classes and metaclasses. So what
+<code>abc.ABCMeta</code> does is just providing the functionality to set
+<code>__abstractmethods__</code> attribute. After haveing learned this &#8220;magic&#8221;, We may
+construct an abstract base class without using <code>abc.ABCMeta</code>. As following&nbsp;example:</p>
+<pre><code>&gt;&gt;&gt; class Foo(object):
+...     def foo(self):
+...             print 'foo'
+... 
+&gt;&gt;&gt; Foo.__abstractmethods__ = set(['foo'])
+&gt;&gt;&gt; f = Foo()
+Traceback (most recent call last):
+  File "&lt;stdin&gt;", line 1, in &lt;module&gt;
+TypeError: Can't instantiate abstract class Foo with abstract methods foo
+</code></pre>
+<p>class <code>Foo</code> is made to be an abstract base class by explicitly assigned the
+<code>__abstractmethods__</code> attribute. Then we got a <code>TypeError</code> exception when we
+tried to initialize this abstract base&nbsp;class.</p>
+<p><code>abc.ABCMeta</code> and <code>abc.abstractmethod</code> is a more clear and obvious way to do it
+with <em>metaclass</em> and <em>property</em> technology. By using a different metaclass, we
+can express that this class is different with other ordinary&nbsp;classes.</p>
+<p><code>abc.ABCMeta</code> also provides other features, like overload <code>issubclass</code> and
+<code>isinstnace</code>. But its main work is collect abstract methods into
+<code>__abstractmethods__</code> attribute as a metaclass. And <code>abc.abstractmethod</code> is the
+helper to give an convenient way to specify a method to be&nbsp;abstract.</p>
+<p>The definition of <code>abc.abstractmethod</code> is a decorator with a simple definition
+that we can show it here:
+    def abstractmethod(funcobj):
+        funcobj.<strong>isabstractmethod</strong> = True
+    return&nbsp;funcobj</p>
+<p>It is a decorator but does not return a different function as some other
+decrators. It just set the <code>__isabstractmethod__</code> attribute for the input
+argument <code>funcobj</code> and return&nbsp;it.</p>
+<p>Since <code>abc.ABCMeta</code> provides some extra features, the implementation is rather
+complex, to better understand the problem and its solution, I will only give a
+simplified version of it as <code>MyABCMeta</code>:</p>
+<pre><code>class MyABCMeta(type):
+    def __new__(mcls, name, bases, namespace):
+        cls = super(MyABCMeta, mcls).__new__(mcls, name, bases, namespace)
+
+        abstracts = set(name for name, value in namespace.items()
+                    if getattr(value, "__isabstractmethod__", False))
+
+        cls.__abstractmethods__ = frozenset(abstracts)
+
+        return cls
+</code></pre>
+<p>As many other metaclasses, <code>MyABCMeta</code> inehrites from <code>type</code>. It redefined
+<code>__new__</code> to revise the process of class creation. In <code>MyABCMeta.__new__</code>,
+<code>type.__new__</code> is called firstly to construct the class.  Then all abstract
+methods in the class definition(the ones with attribute <code>__isabstractmethod__</code>
+set to be True) will be collected into class attribute
+<code>__abstractmethods__</code>. Finally, this constructed class with
+<code>__abstractmethods__</code> attribute assigned are returned as the result of <code>__new__</code>
+method. Then guess what, we&#8217;re done!<br />
+</p>
+<p>By using <code>MyABCMeta</code> as metaclass, a class will have all of its abstract methods
+being collected into <code>__abstractmethods__</code> and then will be considered as an
+abstract base&nbsp;class.</p>
+<pre><code>class Abstract_Something(object):
+    __metaclass__ = MyABCMeta
+
+    @abc.abstractmethod 
+    def foo(self):
+        print 'foo'
+
+&gt;&gt;&gt; some_instance = Abstract_Something()
+Traceback (most recent call last):
+  File "&lt;stdin&gt;", line 1, in &lt;module&gt;
+TypeError: Can't instantiate abstract class Abstract_Something with abstract methods foo
+</code></pre>
+<!-- 
+Local Variables:
+mode: markdown
+End:
+-->
+</div>      </div>
+      <div id="sidebar">
+	<div id="aboutMe" class="module">
+	  <h2> About Me </h2>	  
+	  	  <p>
+	  I'm a programmer live in Hangzhou, China. I focus on server side programming, using C/C++, Python in daily work and also interested in Java, Scala. You may reach me via my email: phenicsl@gmail.com
+	  </p>
+	  	</div>
+	<div id="tagCloud" class="module">
+	  <h2>Tag Cloud</h2>
+	  	  	  <ul>
+    <li class="cloud-rank-6">
+	    <a href="/index.html#tag_scala">Scala</a>
+	</li><li class="cloud-rank-2">
+	    <a href="/index.html#tag_perl6">Perl6</a>
+	</li><li class="cloud-rank-6">
+	    <a href="/index.html#tag_python">Python</a>
+	</li></ul>
+
+	  	</div> <!-- end of tags -->
+      </div> <!-- end of sidebar -->
+      <div class="clear"></div>
+    </div> <!-- end of content -->    
+    <div id="footer">
+      <a href="http://phenicsl.github.com">Designed by @phenicsl</a>
+    </div>
+  </div> <!-- end of site -->
+
+  <a href="http://github.com/phenicsl">
+    <img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" />
+  </a>
+</body>
+</html>

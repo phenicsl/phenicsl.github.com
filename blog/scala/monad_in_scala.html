@@ -9,8 +9,23 @@
   <!-- main css -->
     <link rel="stylesheet" href="/media/css/screen.css" type="text/css"/>
   <link rel="stylesheet" href="/media/css/emacs.css" type="text/css"/>
+    
+  <script type="text/javascript" src="/media/js/mootools-core.js"></script>
+<script type="text/javascript" src="/media/js/hover_expand.js"></script>
+<script type="text/javascript">
+  window.addEvent('domready', function(){
+      var pres = $$('pre');
   
-   </head>
+      pres.each(function(pre){
+          var hoverExpand = new HoverExpand({
+              element: pre
+          });
+	  
+          hoverExpand.registerExpand();
+      });
+  });
+</script>
+</head>
 <body>
   <div id="site">
     <div id="header">
@@ -34,7 +49,7 @@
 </div>
 
 <h1 class="title">
-    <a href="/blog/monad_in_scala.html">
+    <a href="/blog/scala/monad_in_scala.html">
         Monad in Scala
     </a>
 </h1>
