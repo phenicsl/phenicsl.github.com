@@ -253,6 +253,7 @@ article p {
 article code {
     font: 13px Consolas, "Bitstream Vera Sans", monospace, "Courier New";
     font-style: italic;
+    color: #D35A4F;
 }
 
 div.read-more a{
@@ -318,12 +319,8 @@ footer h3 {
     margin-left: 0px;
 }
 
-#footer-categories li {
-    padding-left: 5px;
-}
-
 #footer-categories a {
-    border-left: 2px solid #FCFCFC;
+    border-left: 4px solid #363434;
     padding-left: 5px;
     text-decoration: none;
     color: #FCFCFC;
@@ -332,7 +329,7 @@ footer h3 {
 #footer-categories a:hover {
     text-decoration: none;
     color: #D64937;
-    border-left: 2px solid #D64937;
+    border-left: 4px solid #D64937;
 }
 
 #footer-tags ul {
@@ -458,8 +455,8 @@ td.linenos .linenodiv {
     margin: 0px 10px 0px 0px;
     background-color: #575656;
     color: #EEEEEE;
-    border-top: 5px solid #575656;
-    border-bottom: 5px solid #575656;
+    border-top: 1px solid #575656;
+    border-bottom: 1px solid #575656;
 }
 
 td.code {
