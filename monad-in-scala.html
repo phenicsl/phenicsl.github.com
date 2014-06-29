@@ -73,7 +73,7 @@ Scala为示例来讨论的, 我找到了如下的两篇:</p>
 第一篇来说, 这一篇要更为小巧, 作为理解单子的开始, 再合适不过.</p>
 <p>作为抽象思维很糟糕的我来说, 学习Monad的时候就只能做盲人, 本文会借上面两篇文章的例
 子来说明Monad的实际应用, 并以应用入手, 希望能讲清楚Monad到底要干什么.</p>
-<h3>简单的例子 -- 求值四则运算表达式</h3>
+<h2>简单的例子 -- 求值四则运算表达式</h2>
 <p>Arbow的文章里举的例子非常简单, 甚至不使用Monad的实现都不会太烦复, 这个例子的任务
 是完成一个简单的四则运算器.</p>
 <div class="highlight"><pre><span class="nc">Div</span><span class="o">(</span><span class="nc">Add</span><span class="o">(</span><span class="nc">Neg</span><span class="o">(</span><span class="nc">Num</span><span class="o">(</span><span class="mi">5</span><span class="o">)),</span> <span class="nc">Num</span><span class="o">(</span><span class="mi">1</span><span class="o">)),</span> <span class="nc">Num</span><span class="o">(</span><span class="mi">2</span><span class="o">))</span>
@@ -141,7 +141,7 @@ Some用来包装正确的值,而None则用来指示错误的发生. 而使用Pat
 的参数是None的情况. 而事实上, 这样额外的逻辑是可以用Monad来简化的. 因为Monad的作
 用就是"组合已有的combined computation来形成新的computation, 从而简化程序员手动组
 合computation的工作".</p>
-<h3>Functor</h3>
+<h2>Functor</h2>
 <p>在介绍使用Monad的方案之前, 我们先来探究以下到底什么是Moand呢? 在函数式的程序设计
 语言中, Monad这个概念正是由定义在其上的函数来表达的.
 "<a href="http://james-iry.blogspot.com/search/label/monads" title="Monads are Elephants">Monads are Elephants</a>"这篇文章里用Scala语言定义了Monad需要满足的条件.</p>
@@ -183,7 +183,7 @@ functor相等的值。注意， 这里只需要相等，而不一定要是同一
 <p>第二条规则则是说当map被组合调用时，相当于传入参数的组合来做一次单独的map调用。这
 里如果两次调用传入的参数分别为g和f， 那么相当于只做一次map调用，而传入 /x =&gt;
 f(g(x))/ 作为参数.</p>
-<h3>Monad</h3>
+<h2>Monad</h2>
 <p>而相对于Functor， Monad则还需要定义unit, flatMap两个函数: </p>
 <div class="highlight"><pre><span class="k">def</span> <span class="n">unit</span><span class="o">[</span><span class="kt">A</span><span class="o">](</span><span class="n">x</span><span class="k">:</span> <span class="kt">A</span><span class="o">)</span><span class="k">:</span> <span class="kt">M</span><span class="o">[</span><span class="kt">A</span><span class="o">]</span> <span class="k">=</span> <span class="o">...</span>
 
@@ -231,7 +231,7 @@ Flatten.</p>
 <p>无论是Monad需要满足的Functor的特性还是Monad额外的特性, 看起来都比较抽象. 实际上这
 样抽象的内容不需要强行进行理解, 理解抽象概念最好的方式还是从实际的例子出发, 来看
 看实际应用中定义的Monad是什么样的.</p>
-<h3>Option</h3>
+<h2>Option</h2>
 <p>Option实际上就是Scala中的一个Monad实现. 下面是scala中对Option的定义(有所简化):</p>
 <table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
  2
@@ -292,7 +292,7 @@ map和flatMap对于None要做的额外工作就是检查自己是不是None, 如
 None. 因为None表示的是一个空的Container, 因为不能进行其它的计算.</p>
 <p>这里None的存在还涉及到Monad里面的Monadic Zeros的概念. 本文不再讨论, 你可以阅读
 <a href="http://james-iry.blogspot.com/search/label/monads" title="Monads are Elephants">Monads are Elephants</a>一文来了解.</p>
-<h3>使用Option Monad来解决表达式求值问题</h3>
+<h2>使用Option Monad来解决表达式求值问题</h2>
 <p>Option是Monad, 那么我们当然可以用它来解决表达式求值问题了. 事实上, 我们已经使用
 Option了, 只不过前面利用的是Option中None表示错误状态这样的特点, 我们还是使用手工
 的方式组合computation, 判断是否为None, 并根据判断进行不同的操作. 通过Option的源代
@@ -340,7 +340,7 @@ e1.eval的结果map上"加上e2.eval"这样的操作. 所以第一步我们可�
 的是Option[Int], 因此需要flatten.</p>
 <p>因为map和flatMap都已经帮我们处理了参数为None的情况, 所以我们不再费神去写检测的代
 码. 当所以的操作都写成如上例子中的效果时, 我们的程序瞬间简化了很多.</p>
-<h3>for/yield syntax sugar</h3>
+<h2>for/yield syntax sugar</h2>
 <p>直接的调用map和flatMap看起来还是有些别扭, 如果并非对函数式程序设计烂熟于心,还是很
 难看出到底在做什么样的操作. 而实际上Scala提供了for/yield syntax sugar来做
 map/flatMap的操作.</p>
