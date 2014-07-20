@@ -88,7 +88,7 @@ nav a:hover {
 
 #content-panel h1 {
     padding: 0px;
-    margin: 10px 0px;
+    margin: 30px 0px 10px 0px;
 }
 
 article.summary {
@@ -190,7 +190,7 @@ article.summary h2 a {
 }
 
 article.summary h2 a:hover {
-    color: #24BDDF;
+    color: #D64937;
     text-decoration: none;
 }
 
@@ -237,13 +237,17 @@ article ul {
     margin-left: 2em;
 }
 
+article ol {
+    margin-left: 2em;
+}
+
 article a {
     color: #177BB1;
     text-decoration: none;
 }
 
 article a:hover {
-    color: #48D1CC;
+    color: #D64937;
 }
 
 article p {
@@ -253,13 +257,14 @@ article p {
 article code {
     font: 13px Consolas, "Bitstream Vera Sans", monospace, "Courier New";
     font-style: italic;
-    color: #D35A4F;
+    /* color: #D35A4F; */
+    color: #464545;
 }
 
 div.read-more a{
-    background-color: #575656;
-    border: 1px solid #464545;
-    color: #DCDCDC;
+    background-color: #363434;
+    border: 1px solid #262424;
+    color: #FCFCFC;
     padding: 2px 10px;
     text-decoration: none;
     margin-left: 805px;
@@ -269,7 +274,7 @@ div.read-more a:hover {
     text-decoration: none;
     color: #FFFFFF;
     background-color: #D64937;
-    border: 1px solid #DC143C;
+    border: 1px solid #D64937;
 }
 
 .pagination ul {
@@ -317,6 +322,10 @@ footer h3 {
 #footer-categories ul {
     list-style: none outside none;
     margin-left: 0px;
+}
+
+#footer-categories ul li {
+    margin-left: -10px;
 }
 
 #footer-categories a {
@@ -370,6 +379,23 @@ table {
     border-collapse: collapse;
     border-spacing: 0px;
     margin: 10px 0px;
+}
+
+article td {
+    padding: 3px 10px;
+    border: 1px solid #CCCCCC;
+}
+
+article th {
+    background: #343636;
+    color: #FFFFFF;
+    font-weight: bold;
+    padding: 3px 10px;
+    border: 1px solid #454747;
+}
+
+article tr:nth-of-type(odd){
+    background: #EEEEEE;
 }
 
 ul.tag-cloud {
@@ -450,6 +476,23 @@ table.highlighttable {
     margin: 10px 0px;
 }
 
+table.highlightable td {
+    background-color: transparent;
+}
+
+table.highlighttable th {
+    background-color: transparent;
+}
+
+table.highlighttable tr {
+    background-color: transparent;
+}
+
+table.highlighttable td {
+    border: none;
+    padding: 0px;
+}
+
 td.linenos .linenodiv {
     padding: 5px 0px;
     margin: 0px 10px 0px 0px;
@@ -461,6 +504,7 @@ td.linenos .linenodiv {
 
 td.code {
     width: 100%;
+    border: 0px;
 }
 
 td.code div.highlight {
@@ -544,6 +588,3 @@ li.cate-5 a {
 li.cate-5 a:hover {
     color: #A52A2A;
 }
-
-
-

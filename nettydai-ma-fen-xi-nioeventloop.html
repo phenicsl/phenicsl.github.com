@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title> PHENICSL SPACE </title>
+    <meta charset = "utf-8" />
+
+    <meta name="description" content="" />
+    <meta name="auto" content="phenicsl" />
+
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <script src="/theme/js/html5.js" type="text/javascript"></script>
+
+
+    <link href="/theme/css/screen.css" rel="stylesheet" />
+    <link href="/theme/css/pygments.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <header id="banner">
+      <div class="container">
+	<div id="logo">
+	  <h1><a href="/">PHENICSL SPACE</a></h1>
+	</div>
+	<nav><ul>
+	  <li><a href="/">Blog</a></li>
+	  <li><a href="/categories.html">Category</a></li>
+	  <li><a href="/archives.html">Archives</a></li>
+	</ul></nav>
+	<div class="clear"></div>
+      </div>
+    </header>
+
+    <div id="content-panel">
+      <div id="content-container">
+
+<article>
+  <h1>Netty代码分析 - NioEventLoop</h1>
+<section class="article-metadata">
+<span class="date">2014-07-19</span>
+
+· by <span class="author">phenicsl</span>
+· tags 
+<ul class="inline-tag-list">
+  <li><a href="/tag/java-server-side.html">Java "Server Side"</a></li>
+</ul>
+</section>
+  <section id="article-content">
+    <p> 利用 Java NIO 提供的 <code>multiplexing</code> 和 <code>non-blocking io</code> 来处理网络请求 , 可以在同一个线程内使用 Selector 处理多个网络连接 , 节省了线程切换的开销，服务可以处理大量的并发连接 , 程序的性能得到提升 . 在 Java NIO 的基础上，<em>Netty</em> 规划了线程模型和事件处理结构 , 提供了抽象的接口来处理网络请求 , 保证了程序的可靠性和高性能 ...</p>
+
+
+<p> 和大多数的 Java 框架类似 , <em>Netty</em> 的设计非常复杂 , 代码中存在大量的继承关系，并且定义了很多 interface 来抽象各个模块之间相互依赖的接口 . 但是基本上 Netty 的设计结构还是逃不开并发编程常用的模式 (<code>Patterns</code>). 本文基于 Netty 4.X 版本，主要关注 <code>Event Loop</code> 和 <code>Thread Model</code>, 来分析基于 Netty NIO 的服务端设计和实现 .</p>
+<h2>Netty 中的 Concurrent Patterns</h2>
+<p>Netty 中使用的最基础的 pattern 是 <a href="http://en.wikipedia.org/wiki/Reactor_pattern" title="Reactor">Reactor</a>, <code>IO Multiplexing</code> 由 Netty 来负责处理 , 并提供了 <code>Handler</code> 的注册和调用机制 . 当某一个 channel( 连接 ) 有可以进行的操作 <code>(OP_READ/OP_WRITE/OP_ACCEPT/OP_CONNECT)</code> 时，Netty 通过调用开发人员实现的 Handler 来进行处理 . 通过使用 <a href="http://en.wikipedia.org/wiki/Reactor_pattern" title="Reactor">Rector</a> 模式 , 很好的隔离了底层的代码和上层的业务逻辑 . 开发人员基本上只需要关心实现 <code>Event Handler</code>. 另外，Netty 在 <a href="http://en.wikipedia.org/wiki/Reactor_pattern" title="Reactor">Reactor</a> 的基础上使用 <code>Acceptor-Connector</code> 模式，将连接的建立初始化与具体的 IO 操作分开到不同的 Handler, 隔离和简化了实现逻辑 .</p>
+<p>Netty 使用了多个线程来处理 <code>Reactor</code>. 这有点类似于 <code>Leader-Follower</code> 模式 , 在 Netty 中 , 线程被包装在 EventLoop 中 , 每一个 EventLoop 都会运行自己的 <code>IO Multiplexing</code>. 当有可以处理的 IO 操作时，EventLoop 会触发事件的派发 , 并且调用注册的 Event Handler, 也就是说 Event Handler 的调用是在当前的 EventLoop 的线程内进行的 . <code>IO Multiplexing</code> 和 <code>Event Handle</code> 的调用都是在 EventLoop 所在的线程 , 这一点符合 <code>Leader-Follower</code> 模式 , 但不同的是 , 在 Netty 中 , 进行连接建立的线程和处理 <code>OP_READ/OP_WRITE</code> 操作的线程是分开的 . Netty 中有两种 EventLoop, <code>Parent EventLoop</code> 来建立连接 . 已建立的连接则会被放入到 <code>Child EventLoop</code> 中处理 . 将 <code>IO Multiplexing</code> 和 <code>Handler</code> 的调用放到同一个线程中处理的方式被证明是高效的 , 相比较与此相对的另外一种模式 <code>Half-Sync Half-Async</code>, <code>Leader-Follower</code> 模式避免了线程之间的数据同步，避免了 CPU 的切换和 cache 的失效 . 在高并发的情况下 , 能提供更高的效率 . </p>
+<p>Netty 支持 NIO(<code>Nonblocking I/O</code>) 和 OIO(<code>Old Blocking I/O</code>) 的 IO 模式 , 但本文主要关注的是使用 Netty NIO 进行服务端开发的情况 .</p>
+<h2>NioEventLoop 和 NioEventLoopGroup</h2>
+<p> 在 Netty 中 , 进行 <code>IO Multiplexing</code> 并且处理 <code>Handler</code> 调用的模块被称为 <code>EventLoop</code>:</p>
+<div class="highlight"><pre><span class="kd">class</span> <span class="nc">NioEventLoop</span><span class="o">{</span>
+    <span class="n">Selector</span> <span class="n">selector</span><span class="o">;</span>                              <span class="c1">// selector for io multiplexing</span>
+    <span class="n">SelectedSelectionKeySet</span> <span class="n">selectedKeys</span><span class="o">;</span>           <span class="c1">// selected keys</span>
+    <span class="n">Thread</span> <span class="n">thread</span><span class="o">;</span>                                  <span class="c1">// thread to run NioEventLoop.run</span>
+    <span class="n">Executor</span> <span class="n">executor</span><span class="o">;</span>                              <span class="c1">// executor that initialize the thread</span>
+    <span class="n">Queue</span><span class="o">&lt;</span><span class="n">Runnable</span><span class="o">&gt;</span> <span class="n">taskQueue</span><span class="o">;</span>                      <span class="c1">// task queue</span>
+    <span class="n">Queue</span><span class="o">&lt;</span><span class="n">ScheduledFutureTask</span><span class="o">&lt;?&gt;&gt;</span> <span class="n">delayedTaskQueue</span><span class="o">;</span> <span class="c1">// scheduled task queue</span>
+<span class="o">}</span>
+</pre></div>
+
+
+<p> 前面提到过 , NioEventLoop 中包装了线程 , 用来执行 <code>IO Multiplexing</code> 和 <code>Event Handling</code>. 另外 , <code>NioEventLoop</code> 中还包含下面的三个成员 :</p>
+<ul>
+<li>selectedKeys: 包含经过 <code>select</code> 之后 , 有 <code>ready</code> 事件的 key</li>
+<li>taskQueue: NioEventLoop 除了运行 <code>IO Multiplexing</code> 和 <code>Event Handling</code> 之外 , 还可以处理 Task, 一些 channel 相关的任务可以放到这个 queue 里 . 保证 channel 相关的操作都是在同一个 <code>NioEventLoop</code> 中执行 .</li>
+<li>delayedTaskQueue: 用来保存定时的任务 (scheduled task), 定时任务同样会在 <code>NioEventLoop</code> 中执行 .</li>
+</ul>
+<p><code>NioEventLoop</code> 初始化之后 , 当开始往 <code>NioEventLoop</code> 中的 taskQueue 添加任务时 , 这个操作会创建一个线程来执行 <code>NioEventLoop</code> 的 <code>run</code> 方法 :</p>
+<table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14</pre></div></td><td class="code"><div class="highlight"><pre><span class="kd">protected</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">for</span><span class="o">(;;)</span> <span class="o">{</span>
+        <span class="k">if</span><span class="o">(</span><span class="n">hasTask</span><span class="o">())</span> <span class="o">{</span>
+            <span class="c1">// if there is task in task queue, then just selectNow to ensure non-blocking</span>
+            <span class="n">selectNow</span><span class="o">()</span>
+        <span class="o">}</span>
+        <span class="k">else</span> <span class="o">{</span>
+            <span class="n">select</span><span class="o">();</span> <span class="c1">// timeout will be the duration to first scheduled task.</span>
+        <span class="o">}</span>
+
+        <span class="n">processSelectedKeys</span><span class="o">();</span>
+        <span class="n">runAllTasks</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></div>
+</td></tr></table>
+
+<p> 这个方法实际上就是 <a href="http://en.wikipedia.org/wiki/Reactor_pattern" title="Reactor">Reactor</a> 模式中的 <code>IO Multiplexing</code> 和 <code>Event Handling</code> 部分 . 在 <code>run</code> 方法中 , NioEventLoop 中会处理前面提到的三种操作 :</p>
+<ul>
+<li>IO Multiplexing</li>
+<li>Task</li>
+<li>Scheduled Task</li>
+</ul>
+<p> 基本的思路是先找到所有可以运行的操作 , 包括 :</p>
+<ul>
+<li> 可以进行的 IO 操作 (<code>OP_READ/OP_WRITE/OP_ACCEPT</code>)</li>
+<li>Task Queue 中的 Task</li>
+<li> 已经到运行时间的 Scheduled Task</li>
+</ul>
+<p> 这里需要注意的有两点 :</p>
+<ul>
+<li> 如果 Task Queue 中有 Task, 那么会选择使用 <code>selectNow</code>，这个版本的操作会检查当前可以进行的 IO 操作 , 并立即返回 .</li>
+<li> 当进行 <code>select</code> 操作时，timeout 为最近可运行的 Scheduled Task 的运行时间 .</li>
+</ul>
+<p> 上面的两点都是保证当有可运行的任务时，<code>EventLoop</code> 不会在 <code>IO Multiplexing</code> 上做停留，而是尽快判断是否有可用的 IO 操作，然后开始进行事件分发和执行 Task.</p>
+<p> 在进行 <code>select</code> 操作之后 , <code>EventLoop</code> 会调用 <code>processSelectedKeys()</code> 来处理已经 ready 的操作 . 在这个函数中 , 会判断当前的 channel 可以进行的操作 , 并且根据可以进行的操作来调用对应的函数 :</p>
+<!-- BEGIN RECEIVE ORGTBL select-invocation -->
+
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Invocation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>READ/ACCEPT</td>
+<td><code>channel.unsafe().read()</code></td>
+</tr>
+<tr>
+<td>WRITE</td>
+<td><code>channel.unsafe().forceFlush()</code></td>
+</tr>
+<tr>
+<td><!-- END RECEIVE ORGTBL select-invocation --></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<!--
+#+ORGTBL: SEND select-invocation orgtbl-to-markdown
+| Operation   | Invocation                      |
+|-------------+---------------------------------|
+| READ/ACCEPT | `channel.unsafe().read()`       |
+| WRITE       | `channel.unsafe().forceFlush()` |
+-->
+
+<p> 从跟上面的表格可以看出来 , <code>OP_READ</code> 和 <code>OP_ACCEPT</code> 操作都是调用相同的接口 , 但实际上对应的 channel 类型不一样 , 在 <code>read()</code> 函数中实现了不同的操作 , 这个在后面会描述 .</p>
+<p> 具有相同功能的多个 <code>EventLoop</code> 则组成一个 <code>EventLoopGroup</code>. 类似下面的样子 :</p>
+<div class="highlight"><pre><span class="kd">class</span> <span class="nc">NioEventLoopGroup</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="n">NioEventLoop</span><span class="o">[]</span> <span class="n">children</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></div>
+
+
+<p> 前面提到 <code>Netty</code> 采用了 Boss 和 Worker 的方式来分别建立连接和数据 , 实际上 , <code>Netty</code> 将线程封装在 <code>NioEventLoop</code> 来进行工作 , <code>Netty</code> 中别的模块看到的是 <code>NioEventLoop</code> 和 <code>NioEventLoopGroup</code>. 可以将 <code>NioEventLoopGroup</code> 看成和 Thread Pool 类似的概念 , 当 channel 注册到 <code>NioEventLoopGroup</code> 中时 , <code>NioEventLoopGroup</code> 会顺序分配 group 中的某一个 <code>NioEventLoop</code> 来完成注册 , 随后 channel 的 <code>select</code> 将会交给分配到的 <code>NioEventLoop</code> 来完成 .</p>
+<h2>Socket Accept</h2>
+<p> 当有了 <code>EventLoop</code> 之后 , 需要做的就是将连接注册到 <code>EventLoop</code> 中，在 Server 端 , 这个操作通过 <code>ServerBootstrap</code> 开始触发 , 首先 , <code>ServerBootstrap</code> 会进行下面的初始化工作 .</p>
+<ul>
+<li> 创建并设置 Boss EventLoop Group 和 Worker EventLoop Group</li>
+<li> 设置 channel 使用的 class 为 NioServerSocketChannel</li>
+<li> 设置 Handler</li>
+<li> 设置 Child Handler</li>
+</ul>
+<p> 在这里 , 本文只描述 class 为 <code>NioServerSocketChannel</code> 的情况 , <code>NioServerSocketChannel</code> 支持对其进行 <code>bind</code> 和 <code>accept</code> 操作 . 在进行初始化工作之后 , <code>bootstrap</code> 开始进行 <code>EventLoop</code> 注册和 <code>Channel</code> 绑定操作 , 分为三个步骤 :</p>
+<ul>
+<li> 初始化 channel, 在这个步骤 , <code>NioServerSocketChannel</code> 会被创建 , 并且根据 <code>bootstrap</code> 时指定的 option 进行初始化 . 初始化之后再将 <code>ServerBootstrapAcceptor</code> 注册作为该 <code>channel</code> 的 Event Handler.</li>
+<li> 初始化之后 , 该 <code>channel</code> 会被注册到 Boss EventLoop Group. 如前面所描述 , 这个操作实际上是将 <code>channel</code> 和 Boss EventLoop Group 中的某一个 Event Loop 进行绑定 .</li>
+<li> 在注册绑定之后 , <code>channel</code> 最后进行绑定操作 , 将该 channel 绑定到指定的端口 .</li>
+</ul>
+<p> 在前面描述 <code>EventLoop</code> 的时候提到 , 经过 <code>select</code> 之后 , 如果有 <code>ready</code> 的事件 , <code>EventLoop</code> 首先会调用 channel 中的不同函数来完成操作 , 在这里 , 如果是 <code>OP_ACCEPT</code> 操作 , 那么实际上会调用 <code>NioServerSocketChannel.unsafe().read()</code>. <code>read()</code> 函数会做下面的两个步骤来完成这次 <code>OP_ACCEPT</code> 事件 :</p>
+<ul>
+<li> 循环调用 <code>javaChannel().accept()</code> 来完成接受连接的建立 ( 可能有多个 <code>OP_ACCEPT</code> 操作 )</li>
+<li> 在每一次 <code>accept</code> 操作之后 , 调用 <code>pipeline.fireChannelRead()</code> 发出 <code>channelRead</code> 事件 .</li>
+<li> 循环结束之后调用 <code>pipeline.fireChannelReadComplete</code> 来发出 <code>channelReadComplete</code> 事件 .</li>
+</ul>
+<p> 前面 <code>bootstrap</code> 的过程已经将 <code>ServerBootstrapAcceptor</code> 注册为 <code>channel</code> 的 Event Handler, 因此在这里当 <code>accept</code> 操作之后发出 <code>channelRead</code> 事件时 , 会调用 <code>ServerBootstrapAcceptor</code> 的 <code>channelRead</code> 方法 :</p>
+<table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre>1
+2
+3
+4
+5
+6
+7</pre></div></td><td class="code"><div class="highlight"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">channelRead</span><span class="o">(</span><span class="n">ChannelHandlerContext</span> <span class="n">ctx</span><span class="o">,</span> <span class="n">Object</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="n">Channel</span> <span class="n">child</span> <span class="o">=</span> <span class="o">(</span><span class="n">Channel</span><span class="o">)</span> <span class="n">msg</span><span class="o">;</span>
+    <span class="n">child</span><span class="o">.</span><span class="na">pipeline</span><span class="o">().</span><span class="na">addLast</span><span class="o">(</span><span class="n">childHandler</span><span class="o">);</span> <span class="c1">// 注册在 bootstrap 时设置的 channelHandler</span>
+
+    <span class="c1">// 将 child 注册到 worker EventLoopGroup</span>
+    <span class="n">childGroup</span><span class="o">.</span><span class="na">register</span><span class="o">(</span><span class="n">child</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></div>
+</td></tr></table>
+
+<p> 上面是一个简化的版本 , 从代码中可以看出来 , <code>accept</code> 之后的 <code>channel</code> 作为 <code>msg</code> 参数被传入到函数中 , 这个 <code>channel</code> 在函数中被称为 <code>child</code>. 函数做了下面的两件事情 :
+- 将 <code>bootstrap</code> 时指定的 <code>childHandler</code> 注册为 <code>child</code> 的 Event Handler
+- 将 <code>child</code> 注册到 Worker EventLoopGroup 中 .</p>
+<p> 这之后 , <code>child channel</code> 将由某一个选定的 EventLoop 进行处理 .</p>
+<h2>Socket Read</h2>
+<p> 了解了 Socket Accpet 的过程之后 , Socket Read 的过程就比较容易理解了 , 两者基本上是相同的流程 , 不同的是 , Socket Accept 是在 Boss EventLoop 中进行处理 , 而 Socket Read 是在 Worker EventLoop 中进行处理 :</p>
+<ul>
+<li> 当 socket 的另一端写入数据 , 那么 channel 对应的 EventLoop 会 <code>select</code> 到 <code>OP_READ</code> 事件 .</li>
+<li>EventLoop 会调用 <code>NioSocketChannel.unsafe().read()</code>, 该函数会循环调用 <code>channel</code> 的 <code>read</code> 操作 , 读取数据到 buf 中 </li>
+<li> 每一次 read 操作之后会发出 <code>channelRead</code> 事件 , 并调用各个 Event Handler 进行处理 .</li>
+<li> 当循环结束之后 , 发出 <code>channelReadComplete</code> 事件 .</li>
+</ul>
+<h2>EventLoop 总结 </h2>
+<p> 根据上面的描述 , 在 Netty 中 , 实际上有两种类型的 EventLoop:</p>
+<ul>
+<li><code>Parent EventLoop</code> : 负责处理 <code>NioServerSocketChannel</code>, 主要是 <code>OP_ACCEPT</code> 操作 </li>
+<li><code>Child Eventloop</code> : 负责处理 <code>NioSocketChannel</code>, 主要处理 <code>OP_WRITE/OP_READ</code> 操作 </li>
+</ul>
+<p> 通过使用 <code>EventLoopGroup</code>, 每一种 EventLoop 都可以有多个实例 ( 在 <code>bootstrap</code> 的时候指定 ). </p>
+<p> 在 Server 端使用 NIO 的情况下 , Parent EventLoop 和 Child EventLoop 的协作方式如下面的图所示 :
+<img alt="Netty NIO Thread Model" src="images/netty_thread_model.png" /></p>
+<ul>
+<li> 首先是在 <code>bootstrap</code> 的时候在进行 register 和 bind 操作的时候 , 会将创建的 <code>NioServerSocketChannel</code> 注册到 <code>Parent EventLoop</code> 中 .</li>
+<li> 当有客户端连接时 , <code>Parent EventLoop</code> 会 "select" 到 <code>OP_ACCEPT</code> 操作 , 如前面的描述 , <code>Parent EventLoop</code> 会调用 <code>NioServerSocketChannel</code> 的 <code>read</code> 方法来 <code>accept</code> 连接 , 然后通过 <code>ServerBootstrapAcceptor</code> 将新的 <code>NioSocketChannel</code> 注册到 <code>Child EventLoop</code>.</li>
+<li> 当客户端通过连接发送数据时 , <code>Child EventLoop</code> 会 "select" 到 <code>OP_READ</code> 操作 , 这时候 <code>Child EventLoop</code> 会调用 <code>NioSocketChannel</code> 的 <code>read</code> 操作来读取数据 , 并且触发 <code>channelRead</code> 和 <code>channelReadComplete</code> 事件 .</li>
+</ul>
+<h2>Reference</h2>
+<ol>
+<li><a href="http://en.wikipedia.org/wiki/Reactor_pattern">http://en.wikipedia.org/wiki/Reactor_pattern</a></li>
+<li><a href="http://xw-z1985.iteye.com/blog/1918052">http://xw-z1985.iteye.com/blog/1918052</a></li>
+<li><a href="http://www.manning.com/maurer/">Netty in Action</a></li>
+</ol>
+  </section>
+</article>
+
+      </div>
+    </div>
+
+    <footer>
+      <div class="container">
+	<section class="column one-third" id="footer-about">
+	  <h3>About</h3>
+	  程序员, 从事服务端开发, 喜欢C++和python, 目前在杭州阿里巴巴工作. 
+	</section>
+	<section class="column one-third" id="footer-categories">
+	  <h3>Categories</h3>
+	  <ul>
+	    <li><a href="/category/distributed-architecture.html">Distributed Architecture</a></li>
+	    <li><a href="/category/programming-language.html">Programming Language</a></li>
+	    <li><a href="/category/software-engineering.html">Software Engineering</a></li>
+	  </ul>
+	</section>
+	<section class="column one-third last" id="footer-tags">
+	  <h3>Tags</h3>
+<ul class="tag-cloud">
+  <li class="tag-4"><a href="/tag/Scala/">Scala</a></li>
+  <li class="tag-4"><a href="/tag/Java "Server Side"/">Java "Server Side"</a></li>
+  <li class="tag-4"><a href="/tag/Python/">Python</a></li>
+</ul>	</section>
+	<div class="clear"></div>
+	<section id="copyright">
+	  Powered by <a href="http://www.python.org">Python</a>
+	  | <a href="http://blog.getpelican.com/">Pelican</a>
+	</section>
+	<div class="clear"></div>
+      </div>
+    </footer>
+  </body>
+</html>
