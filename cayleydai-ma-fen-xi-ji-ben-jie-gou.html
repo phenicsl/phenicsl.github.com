@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title> PHENICSL SPACE </title>
+    <meta charset = "utf-8" />
+
+    <meta name="description" content="" />
+    <meta name="auto" content="phenicsl" />
+
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <script src="/theme/js/html5.js" type="text/javascript"></script>
+
+
+    <link href="/theme/css/screen.css" rel="stylesheet" />
+    <link href="/theme/css/pygments.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <header id="banner">
+      <div class="container">
+	<div id="logo">
+	  <h1><a href="/">PHENICSL SPACE</a></h1>
+	</div>
+	<nav><ul>
+	  <li><a href="/">Blog</a></li>
+	  <li><a href="/categories.html">Category</a></li>
+	  <li><a href="/archives.html">Archives</a></li>
+	</ul></nav>
+	<div class="clear"></div>
+      </div>
+    </header>
+
+    <div id="content-panel">
+      <div id="content-container">
+
+<article>
+  <h1>Cayley代码分析 - 基本结构</h1>
+<section class="article-metadata">
+<span class="date">2014-08-14</span>
+
+· by <span class="author">phenicsl</span>
+· tags 
+<ul class="inline-tag-list">
+  <li><a href="/tag/golang.html">golang</a></li>
+  <li><a href="/tag/graphdb.html">graphdb</a></li>
+</ul>
+</section>
+  <section id="article-content">
+    <p><strong>Cayley</strong> 是用 golang 实现的基于 triple store 的开源 graph database. <strong>Caley</strong> 同时支持 Gremlin 和 MQL 的查询方式 . 并且可以支持多个 backend, 比如 LevelDB, Bolt, MongoDB 和 In-Memory Store.</p>
+<p> 这篇文章主要介绍 In-Memory Store 的方式下 , <strong>Cayley</strong> 采用 JavaScript/Gremlin 进行查询的过程 , 关注点是分析 In-Memory 方式下的数据结构和查询流程 . 本文只是对 cayley 代码做了基本的描述 , 基本上是对自己阅读过程的一个总结 , 不能保证描述的正确性 , 更不保证内容的完备性 .</p>
+
+
+<h2>TripleStore</h2>
+<p>graph database 的存储形式有多种 , 而 TripleStore 是其中常见的一种 , <strong>Cayley</strong> 中的 TripleStore 可以用文本表示为下面的样子 :</p>
+<div class="highlight"><pre><span class="mf">1.</span> <span class="n">Alice</span> <span class="n">follows</span> <span class="n">Chester</span> <span class="p">.</span>
+<span class="mf">2.</span> <span class="n">Alice</span> <span class="n">follows</span> <span class="n">Mike</span> <span class="p">.</span>
+<span class="mf">3.</span> <span class="n">Mike</span> <span class="n">follows</span> <span class="n">Chester</span> <span class="p">.</span>
+</pre></div>
+
+
+<p>TripleStore 数据存储单元被表示成为 Triple, 即三元式 , 在 <strong>Cayley</strong> 中 , 每一个 Triple 还可以有一个 <code>Label</code>, 因此实际上被实现为 Quad, Quad 由四个部分组成 , 每一个部分被称为一个 node.</p>
+<ul>
+<li><code>Subject</code>: 表示发起动作的一方 , 比如在上面示例的 Quad 1 中 , Alice 是 <code>Subject</code></li>
+<li><code>Object</code>: 表示接受动作的一方 , 比如 Quad 1 中 , Chester 是 <code>Object</code></li>
+<li><code>Predicate</code>: 表示 <code>Subject</code> 和 <code>Object</code> 的关系 , 在 Quad 1 中 , <code>Predicate</code> 是 "follows"</li>
+<li><code>Label</code>: 表示整个 Quad 的标签 , 在上面的例子中 , lable 都是 ".", 表示为空 .</li>
+</ul>
+<p><code>Quad</code> 用来表示 <code>Subject</code> 和 <code>Object</code> 之间的 <code>Predicate</code> 关系 .  比如例子中的三个 Quad( 四元式 ), 都是用来表示 <code>Subject</code> 和 <code>Object</code> 之间的 "follows" 关系 .</p>
+<p> 因为包含了 <code>Label</code>, <strong>Cayley</strong> 中的 Triple 实际上被扩展成为 Quad, 但为了符合 TripleStore 的语义 , 后面的讨论中仍然会使用 Triple 描述 . 当文中使用到 Triple 或者 Quad 时 , 其实描述的是相同的东西 .</p>
+<h2>JavaScript/Gremlin</h2>
+<p><strong>Cayley</strong> 支持使用 JavaScript 对数据进行查询 , 并且定义了类似于 Gremlin 的 graph 对象 , 用户可以使用类似 Gremlin 的语言来进行 graph 查询 . <strong>Cayley</strong> 内部使用了一个称为 <a href="https://github.com/robertkrimen/otto">otto</a> 的 JavaScript 解释器 , 当用户在 REPL 直接输入 Javascript 语句 , 或者通过 HTTP 发送 JavaScript 请求时 , <strong>Cayley</strong> 都通过 JavaScript 解释器来解析并执行 JavaScript 代码 , 对 graph database 进行查询 .</p>
+<p><a href="https://github.com/robertkrimen/otto">otto</a> 是一个 generic 的 JavaScript 解释器 , 本身并不包含 graph database 相关的功能 , <strong>Cayley</strong> 在 JavaScript 环境中预定义了 <code>graph</code> 对象来引入 graph database 的功能 . <code>graph</code> 是一个特殊的对象 , 所有的 graph database 查询都从 <code>graph</code> 开始 . <code>graph</code> 对象中定义了进行查询的相关方法 , 其中 <code>graph.Vertex()</code> 方法可以返回指定了特定 vertex 的 Path Object, <code>Vertex()</code> 方法可以接受一个或者多个 vertex 的 name 作为参数 . 而该方法实际返回的是一个 Path Object, Path Object 中又定义了 <code>travels methods</code> 来进行进一步的遍历和 <code>finals methods</code> 来返回结果 . 我们可以把 <code>graph</code> 对象中的方法看作用来指定图遍历的起点 . 这样 , 整个遍历过程可以被串联成下面的样子 :</p>
+<div class="highlight"><pre><span class="nx">graph</span><span class="p">.</span><span class="nx">Vertex</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">).</span><span class="nx">Out</span><span class="p">(</span><span class="s2">&quot;follows&quot;</span><span class="p">).</span><span class="nx">All</span><span class="p">()</span>
+</pre></div>
+
+
+<p> 上面的例子会返回 Alice "follows" 的所有 vertex. 这里 , <code>graph.Vertex("Alice")</code> 首先会返回指定了 vertex 为 "Alice" 的 Path Object, 随后的调用的 <code>Out</code> 方法是一个 <code>travels method</code>, <code>Out("follows")</code> 表示从之前返回的 Path Object 开始遍历所有 name 为 "follows" 的 out 路径 , <code>Out</code> 方法同样会返回一个 Path Object, 指向了所有 "Alice" follows 的 vertex. 最后调用的 <code>All</code> 是一个 <code>finals method</code>, 表示返回当前得到的所有 vertex 结果 .</p>
+<p> 从上面的例子可以看出 JavaScript/Gremlin 的基本语法 :</p>
+<ul>
+<li><code>graph</code> JavaScript 对象引入 graph database 功能 , <code>graph.Vertex()</code> 方法返回表示特定 vertex 的 Path Object.</li>
+<li>Path Object 定义了 <code>travels methods</code> 和 <code>finals methods</code></li>
+<li><code>traverls methods</code> 定义了 graph database 的遍历操作 , 在 Path Object 上调用 <code>travels methods</code> 同样返回 Path Object. 比如上面的 <code>Out()</code> 方法 .</li>
+<li><code>finals methods</code> 最终返回遍历的结果 . 比如上面的 <code>All()</code> 方法 .</li>
+</ul>
+<h2>Memory TripleStore</h2>
+<p><strong>Cayley</strong> 支持多种数据存储的后端 , 包括 :
+- LevelDB
+- Bolt
+- MongoDB
+- In-Memory, ephemeral</p>
+<p> 这里 , 我们只介绍 In-Memory 的存储方式 .</p>
+<p> 在 <strong>Cayley</strong> 中 , In-Memory 的 TripleStore 定义为下面的样子 :</p>
+<div class="highlight"><pre><span class="kd">type</span> <span class="nx">TripleStore</span> <span class="kd">struct</span> <span class="p">{</span>
+    <span class="nx">idCounter</span>       <span class="kt">int64</span>
+    <span class="nx">tripleIdCounter</span> <span class="kt">int64</span>
+    <span class="nx">idMap</span>           <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">int64</span>
+    <span class="nx">revIdMap</span>        <span class="kd">map</span><span class="p">[</span><span class="kt">int64</span><span class="p">]</span><span class="kt">string</span>
+    <span class="nx">triples</span>         <span class="p">[]</span><span class="nx">quad</span><span class="p">.</span><span class="nx">Quad</span>
+    <span class="nx">size</span>            <span class="kt">int64</span>
+    <span class="nx">index</span>           <span class="nx">TripleDirectionIndex</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<ul>
+<li><strong>Cayley</strong> 会为在 TripleStore 中的每一个 Triple 赋值一个 tripleId, 而 triple 中的每一个 node, 都会被设置一个 nodeId. 这两个 Id 都是唯一的 . <code>TripleStore</code> 结构中的 <code>idCounter</code> 和 <code>tripeIdCounter</code> 记录了 tripleId 和 nodeId 的最大值 , 用来为下一个 triple 和 node 进行 id 分配 .</li>
+<li><code>idMap</code> 是从 node name 到 nodeId 的映射 . 可以用于通过 node name 来查找 nodeId, 比如上面的例子中 , 我们可以简单的通过 <code>idMap</code> 来找到 "Alice" 对应的 nodeId.</li>
+<li><code>revIdMap</code> 是从 nodeId 到 node name 的映射 .</li>
+<li><code>triples</code> 存储了所有的 triple. triples 实际上是 <code>quad.Qaud</code> 的 slice 类型 .</li>
+<li><code>size</code> 存储了 TripleStore 中的 triple 的数量 </li>
+<li><code>index</code> 是遍历 TripleStore 的关键 , 它存储了每一个 node 在 TripleStore 中的 index. 下面会详细介绍这个 TripleDirectionIndex.</li>
+</ul>
+<h3>TripleDirectionIndex</h3>
+<p><code>TripleDirectionIndex</code> 的定义如下 :</p>
+<div class="highlight"><pre><span class="kd">type</span> <span class="nx">TripleDirectionIndex</span> <span class="kd">struct</span> <span class="p">{</span>
+    <span class="nx">subject</span>   <span class="kd">map</span><span class="p">[</span><span class="kt">int64</span><span class="p">]</span><span class="o">*</span><span class="nx">llrb</span><span class="p">.</span><span class="nx">LLRB</span>
+    <span class="nx">predicate</span> <span class="kd">map</span><span class="p">[</span><span class="kt">int64</span><span class="p">]</span><span class="o">*</span><span class="nx">llrb</span><span class="p">.</span><span class="nx">LLRB</span>
+    <span class="nx">object</span>    <span class="kd">map</span><span class="p">[</span><span class="kt">int64</span><span class="p">]</span><span class="o">*</span><span class="nx">llrb</span><span class="p">.</span><span class="nx">LLRB</span>
+    <span class="nx">label</span>     <span class="kd">map</span><span class="p">[</span><span class="kt">int64</span><span class="p">]</span><span class="o">*</span><span class="nx">llrb</span><span class="p">.</span><span class="nx">LLRB</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p><code>TripleDirecitonIndex</code> 中包含了 4 个 map, 针对 triple 中的 Subject, Object, Predicate 和 Label 四种 node 各有一个 . map 的 key 是 nodeId, 而 value 则是一个红黑数 . 其中保存了包含了该 node 的所有 triple. 这样当我们拿到一个 node 时 , 可以很方便的通过下面的两步操作来找到所有包含这个 node 的 triple.</p>
+<ul>
+<li> 首先 , 根据 node 的类型 , 获取到存储 LLRB 的 map</li>
+<li> 然后使用 node 的 id 为 key, 从 map 中获取存储了 triple 的 LLRB.</li>
+</ul>
+<p><code>TripleDirectionIndex</code> 实际上定义了从 <code>(direction, node)</code> 到 triple 的映射 . 它在 graph database 查询中起到很重要的作用 .</p>
+<h2>Graph Database 查询 </h2>
+<p>graph database 的查询都是从 <code>graph</code> 对象开始 , 比如下面的列子 :</p>
+<div class="highlight"><pre><span class="nx">graph</span><span class="p">.</span><span class="nx">Vertex</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">).</span><span class="nx">Out</span><span class="p">(</span><span class="s2">&quot;follows&quot;</span><span class="p">).</span><span class="nx">All</span><span class="p">()</span>
+</pre></div>
+
+
+<p><strong>Cayley</strong> 使用了 lazy 的方式来实现查询过程 , 整个过程被分为两步 :</p>
+<ol>
+<li> 当调用 <code>graph.Vertex()</code> 和 <code>travels methods</code> 的时候 , cayley 实际上是在构造 Path Object.</li>
+<li> 当执行到 <code>finals methods</code> 方法的时候 , <strong>Cayley</strong> 开始构建 iterator, 并且调用 <code>iterator.next()</code> 来获取遍历结果 . 这保证了只有在执行到 <code>finals methods</code> 的时候 , 才会真正执行遍历操作 .</li>
+</ol>
+<p>Path Object 记录了查询语句的结果 , 而 iterator 则是将 Path Object 翻译更贴近查询过程的形式 . 一个 Path Object 可能会被转换城一个或者多个 iterator. 每一个 iterator 都会包含 <code>next()</code> 方法用来返回查询的下一个结果 , 而多个 iterator 链接起来 , 完成整个查询过程 . 下面会介绍几种示例中涉及到的 iterator. 然后介绍示例的查询过程 .</p>
+<h3>Fixed Iterator</h3>
+<p><code>Fixed Iterator</code> 中包含数组 <code>values</code> 存储指定的 <code>node</code>, 调用 <code>Fixed.next()</code> 会按序返回数组中的 node. 更详细一点 , <code>Fixed</code> 中包含了下面的成员 :</p>
+<div class="highlight"><pre><span class="kd">type</span> <span class="nx">Fixed</span> <span class="kd">struct</span> <span class="p">{</span>
+    <span class="nx">values</span>     <span class="p">[]</span><span class="nx">graph</span><span class="p">.</span><span class="nx">Value</span>
+    <span class="nx">lastIndex</span>  <span class="kt">int</span>
+    <span class="o">...</span> <span class="o">...</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p> 其中 , <code>values</code> 保存了所有的可能会返回的 node, <code>lastIndex</code> 保存了下一个返回值的 index, 每一次 <code>next()</code> 方法被调用之后 , <code>lastIndex</code> 会被加 1, 直到 <code>lastIndex == len(values)</code>.</p>
+<h3>LinksTo Iterator</h3>
+<p><code>LinksTo</code> 中包含了下面的一些成员 :</p>
+<div class="highlight"><pre><span class="kd">type</span> <span class="nx">LinksTo</span> <span class="kd">struct</span> <span class="p">{</span>
+    <span class="nx">ts</span>         <span class="nx">graph</span><span class="p">.</span><span class="nx">TripleStore</span>
+    <span class="nx">primaryIt</span>  <span class="nx">graph</span><span class="p">.</span><span class="nx">Iterator</span>
+    <span class="nx">dir</span>        <span class="nx">quad</span><span class="p">.</span><span class="nx">Direction</span>
+    <span class="nx">nextIt</span>     <span class="nx">grpah</span><span class="p">.</span><span class="nx">Iterator</span>
+    <span class="nx">result</span>     <span class="nx">graph</span><span class="p">.</span><span class="nx">Value</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p> 当构造 <code>LinksTo</code> 的时候 , 需要传入三个参数 ::</p>
+<div class="highlight"><pre><span class="kd">func</span> <span class="nx">NewLinksTo</span><span class="p">(</span><span class="nx">ts</span> <span class="nx">graph</span><span class="p">.</span><span class="nx">TripleStore</span><span class="p">,</span> <span class="nx">primaryIt</span> <span class="nx">graph</span><span class="p">.</span><span class="nx">Iterator</span><span class="p">,</span> <span class="nx">dir</span> <span class="nx">quad</span><span class="p">.</span><span class="nx">Direction</span><span class="p">)</span>
+</pre></div>
+
+
+<p><code>LinksTo.next()</code> 方法会返回 TripleStore 中所有包含了 <code>primaryIt</code> 中的 node 的 triple. <code>next()</code> 会做下面的操作 :</p>
+<ol>
+<li> 从 <code>primaryIt</code> 中拿到下一个 <code>node</code></li>
+<li> 根据 <code>node</code> 和 <code>dir</code> 从 TripleStore 中拿到 <code>triple.direciton = node</code> 的 triple. 这个操作是通过 TripleStore 的 TripleDirectionIndex 来完成的 .</li>
+</ol>
+<p> 比如如果我们想拿到所有 Subject 为 "Alice" 的 triple, 我们可以用下面的语句来构造一个 <code>LinksTo</code> iterator:</p>
+<div class="highlight"><pre><span class="nx">linksTo</span> <span class="o">:=</span> <span class="nx">NewLinksTo</span><span class="p">(</span><span class="nx">ts</span><span class="p">,</span> <span class="nx">NewFixed</span><span class="p">(</span><span class="s">&quot;Alice&quot;</span><span class="p">),</span> <span class="nx">quad</span><span class="p">.</span><span class="nx">Subject</span><span class="p">)</span>
+</pre></div>
+
+
+<h3>And Iterator</h3>
+<p><code>And Iterator</code> 表示多个 iterator 之间的 and 关系 , 其中包含下面的关键成员 :</p>
+<div class="highlight"><pre><span class="kd">type</span> <span class="nx">And</span> <span class="kd">struct</span> <span class="p">{</span>
+    <span class="nx">internalIterators</span> <span class="p">[]</span><span class="nx">graph</span><span class="p">.</span><span class="nx">Iterator</span>
+    <span class="nx">itcount</span>           <span class="kt">int</span>
+    <span class="nx">primaryIt</span>         <span class="nx">graph</span><span class="p">.</span><span class="nx">Iterator</span>
+    <span class="nx">result</span>            <span class="nx">graph</span><span class="p">.</span><span class="nx">Value</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p> 在 <code>And Iterator</code> 的 <code>next()</code> 方法中 , 首先会从 <code>pimaryIt</code> 中获取 <code>next()</code> 方法的结果 , 随后会循环对 <code>internalIterators</code> 中的 <code>iterator</code> 调用 <code>contains()</code> 来确认刚刚返回的 <code>next</code> 结果是否在所有的 <code>iterator</code> 中 . 从这里可以看出来 , <code>primaryIt</code> 和 <code>iternalIterators</code> 之间是 AND 的关系 .</p>
+<h3>HasA Iterator</h3>
+<p><code>Has Iterator</code> 是一个从 <code>triple</code> 到 <code>node</code> 的 <code>iterator</code>,  其中包含下面的关键成员 :</p>
+<div class="highlight"><pre><span class="kd">type</span> <span class="nx">HasA</span> <span class="kd">struct</span> <span class="p">{</span>
+    <span class="nx">ts</span>           <span class="nx">graph</span><span class="p">.</span><span class="nx">TripleStore</span>
+    <span class="nx">primaryIt</span>    <span class="nx">graph</span><span class="p">.</span><span class="nx">Iterator</span>
+    <span class="nx">dir</span>          <span class="nx">graph</span><span class="p">.</span><span class="nx">Direction</span>
+    <span class="nx">resultIt</span>     <span class="nx">graph</span><span class="p">.</span><span class="nx">Iterator</span>
+    <span class="nx">result</span>       <span class="nx">graph</span><span class="p">.</span><span class="nx">Value</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p><code>Has Iterator</code> 的 <code>next()</code> 方法获取 <code>primaryIt</code> 中的下一个 triple, 然后返回该 triple 在 <code>direction=dir</code> 上的 node.</p>
+<h2>Graph Database 查询实例 </h2>
+<p> 根据上面的 <code>graph iterator</code> 介绍 , 我们可以来看一个具体的示例来看一下 iterator 的创建和查询过程 .</p>
+<div class="highlight"><pre><span class="nx">graph</span><span class="p">.</span><span class="nx">Vertex</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">).</span><span class="nx">Out</span><span class="p">(</span><span class="s2">&quot;follows&quot;</span><span class="p">).</span><span class="nx">All</span><span class="p">()</span>
+</pre></div>
+
+
+<p> 根据前面的描述 , 可以把上面的示例转换为下面的样子 :</p>
+<div class="highlight"><pre><span class="kd">function</span> <span class="nx">query</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">vertexes</span> <span class="o">=</span> <span class="nx">graph</span><span class="p">.</span><span class="nx">Vertex</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">);</span>
+    <span class="kd">var</span> <span class="nx">pathObj1</span> <span class="o">=</span> <span class="nx">vertexes</span><span class="p">.</span><span class="nx">Out</span><span class="p">(</span><span class="s2">&quot;follows&quot;</span><span class="p">);</span>
+    <span class="nx">pathObj</span><span class="p">.</span><span class="nx">All</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p> 前面提到 , <strong>cayley</strong> 只有在调用了 <code>finals methods</code> 的时候 , 才会进行 iterator 的构建和对 <code>next()</code> 方法的调用 . </p>
+<p> 在 <code>pathObj.All()</code> 被调用时 , 会进行下面的两个步骤 :
+- 根据返回的 <code>Path Object</code> 来创建 iterator tree. <code>Path Object</code> 会通过其中的 <code>_gremlin_prev</code> 成员来记录前一个 <code>Path Object</code> 的引用 . 这里 <strong>Cayley</strong> 会反向遍历 <code>Path Object</code>, 将 <code>Path Object</code> 转化为更贴近 graph database 查询过程的 <code>iteartor</code>
+- 对 <code>iterator tree</code> 进行遍历 , 调用其 <code>next()</code> 方法来查询 graph database.</p>
+<p> 当调用了 <code>graph.Vertex("Alice").Out("follows")</code> 之后 , 实际上会返回一个 <code>Path Object</code>, 为下图的样子 :</p>
+<p><img alt="Gremlin Path Object Link" src="images/gremlin_path_object_1.png" /></p>
+<ul>
+<li>Path Object 包含了 <code>_gremlin_type</code> 字段来标示类型 , 后面会根据不同的类型进行不同的处理 </li>
+<li>Path Object 中包含了 <code>_gremlin_prev</code> 字段来指向前一个 <code>Path Object</code>. 因为是采用 lazy 的方式进行处理 , 因此需要记录整个 Path Object 的构建路径 , 后面进行 <code>iterator tree</code> 构造时 , 一般都会采用递归的方式处理整个 Path Object 链表 .</li>
+</ul>
+<p><code>buildIteratorTree()</code> 会采用递归的方式处理 <code>Path Object</code> 链表 . 并根据不同的 <code>_gremlin_type</code> 进行不同的处理 . 在上面的例子 , 其中包括了两种 <code>vertex</code> 和 <code>out</code> 两种 object, 类型为 <code>vertex</code> 的 object 处理比较简单 , <code>buildIteartorTree()</code> 会返回一个 <code>Fixed Iterator</code>, 其中 <code>Fixed.values</code> 为 <code>Vertex()</code> 方法指定的 vertex, 在示例中是 vertex "Alice". 而 <code>out</code> 类型的 object 处理比较复杂 .</p>
+<h3>Build Out Iterator</h3>
+<p> 当类型为 <code>out</code> 时 , 处理会稍微复杂 . 结合上面的实例 , 这个过程可以用下面的代码来表示 :</p>
+<div class="highlight"><pre><span class="kd">func</span> <span class="nx">buildOutIterator</span><span class="p">(</span><span class="nx">obj</span><span class="p">,</span> <span class="nx">ts</span><span class="p">,</span> <span class="nx">base</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">subjectLinks</span> <span class="o">:=</span> <span class="nx">NewLinksTo</span><span class="p">(</span><span class="nx">ts</span> <span class="p">=</span> <span class="nx">ts</span><span class="p">,</span> <span class="nx">primaryIt</span> <span class="p">=</span> <span class="nx">base</span><span class="p">,</span> <span class="nx">dir</span> <span class="p">=</span> <span class="nx">quad</span><span class="p">.</span><span class="nx">Subject</span><span class="p">)</span>
+
+    <span class="nx">predicateIterator</span> <span class="o">:=</span> <span class="nx">NewFixed</span><span class="p">(</span><span class="nx">values</span> <span class="p">=</span> <span class="p">[</span><span class="s">&quot;follows&quot;</span><span class="p">])</span>
+    <span class="nx">predicateLinks</span> <span class="o">:=</span> <span class="nx">NewLinksTo</span><span class="p">(</span><span class="nx">ts</span> <span class="p">=</span> <span class="nx">ts</span><span class="p">,</span> <span class="nx">primaryIt</span> <span class="p">=</span> <span class="nx">predicateIterator</span><span class="p">,</span> <span class="nx">dir</span> <span class="p">=</span> <span class="nx">quad</span><span class="p">.</span><span class="nx">Predicate</span><span class="p">)</span>
+
+    <span class="nx">andIter</span> <span class="o">:=</span> <span class="nx">NewAnd</span><span class="p">(</span><span class="nx">internalIterators</span> <span class="p">=</span> <span class="p">[</span><span class="nx">predicateLinks</span><span class="p">],</span> <span class="nx">primaryIt</span> <span class="p">=</span> <span class="nx">subjectLinks</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="nx">NewHasA</span><span class="p">(</span><span class="nx">ts</span> <span class="p">=</span> <span class="nx">ts</span><span class="p">,</span> <span class="nx">primaryIt</span> <span class="p">=</span> <span class="nx">andIter</span><span class="p">,</span> <span class="nx">dir</span> <span class="p">=</span> <span class="nx">quad</span><span class="p">.</span><span class="nx">Object</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p><code>graph.Vertex("Alice").out("folows").All()</code> 实际上返回的是所有 "Alice" follows 的 vertex, <strong>cayley</strong> 把这个关系表示成多个 iterator. 这里参数 base 是之前的 Path Object, 在这里是类型为 <code>vertex</code> 的 object.
+- 首先 , <code>subjectLinks</code> 用来查找到所有 <code>Subject</code> 为 "Alice" 的 triple.
+- 其次 , <code>predicateLinks</code> 用来查找到所有 <code>Predicate</code> 为 "follows" 的 triple.
+- 上面的两个 iterator 通过 <code>And</code> iterator 进行组合 , 找到所有 <code>(Subject = "Alice", Predicate = "follows")</code> 的 triple
+- 最后通过 HasA iterator 返回上面找到所有 triple 的 Object, 完成所需要的查询 .</p>
+<h2>In-Memory Backend 的查询 </h2>
+<p> 根据上面的叙述 , graph database 查询过程被表示为不同的 iterator. 而实际上 , 在上面的例子中 , 只有在做第一次 <code>LinksTo.</code> 的查询是才需要访问 In-Memory Backend. 这是需要的操作是拿到所有 <code>Subject</code> 为 Alice 的 triple. 这个操作可以通过 <code>`TripleStore.TripleDirectionIndex</code> 进行查询 . 当拿到这个 iterator 之后 , 后面的操作都可以直接在这个 iterator 上进行操作 , 而不需要再次访问 In-Memory Backend.</p>
+<h2> 总结 </h2>
+<p><strong>Cayley</strong> 支持 lazy 的方式进行 graph database 的查询 , 并且支持了多种 Backend, 因此代码比较复杂 . 本文只挑选了一个简单的例子进行描述 , 并介绍了例子可能涉及到的一些概念和实现细节 . 如果回到查询这个根本问题 , 当排除了 Path Object 和 iterator 这些为扩展性和灵活性而设计的结构之后 , 可以看出 <strong>Cayley</strong> 中基本上就是依靠 <code>TripleDirectionIndex</code> 进行 graph database 的查询 .</p>
+  </section>
+</article>
+
+      </div>
+    </div>
+
+    <footer>
+      <div class="container">
+	<section class="column one-third" id="footer-about">
+	  <h3>About</h3>
+	  程序员, 从事服务端开发, 喜欢C++和python, 目前在杭州阿里巴巴工作. 
+	</section>
+	<section class="column one-third" id="footer-categories">
+	  <h3>Categories</h3>
+	  <ul>
+	    <li><a href="/category/distributed-architecture.html">Distributed Architecture</a></li>
+	    <li><a href="/category/graph-database.html">Graph Database</a></li>
+	    <li><a href="/category/programming-language.html">Programming Language</a></li>
+	    <li><a href="/category/software-engineering.html">Software Engineering</a></li>
+	  </ul>
+	</section>
+	<section class="column one-third last" id="footer-tags">
+	  <h3>Tags</h3>
+<ul class="tag-cloud">
+  <li class="tag-4"><a href="/tag/golang/">golang</a></li>
+  <li class="tag-4"><a href="/tag/Netty/">Netty</a></li>
+  <li class="tag-4"><a href="/tag/graphdb/">graphdb</a></li>
+  <li class="tag-4"><a href="/tag/Java/">Java</a></li>
+  <li class="tag-4"><a href="/tag/Scala/">Scala</a></li>
+  <li class="tag-4"><a href="/tag/Python/">Python</a></li>
+</ul>	</section>
+	<div class="clear"></div>
+	<section id="copyright">
+	  Powered by <a href="http://www.python.org">Python</a>
+	  | <a href="http://blog.getpelican.com/">Pelican</a>
+	</section>
+	<div class="clear"></div>
+      </div>
+    </footer>
+  </body>
+</html>
