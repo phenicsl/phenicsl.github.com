@@ -4,7 +4,7 @@
 }
 
 body {
-    color: #333333;
+    color: #070504;
     height: 100%;
     background-color: #363434;
     font: 14px verdana, helvetica, arial, sans;
@@ -75,13 +75,13 @@ nav a:hover {
 }
 
 #content-panel {
-    background-color: #FCFCFC;
+    background-color: #FFFFFF;
     width: 100%;
 }
 
 #content-container {
     margin: auto;
-    text-align: justify;
+    text-align: left;
     width: 960px;
     padding: 20px;
 }
